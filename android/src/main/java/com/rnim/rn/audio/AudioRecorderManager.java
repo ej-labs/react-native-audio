@@ -2,39 +2,37 @@ package com.rnim.rn.audio;
 
 import android.Manifest;
 import android.content.Context;
-
-import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.ReactContextBaseJavaModule;
-import com.facebook.react.bridge.ReactMethod;
+import android.content.pm.PackageManager;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
+import android.os.AsyncTask;
+import android.os.Environment;
+import android.os.SystemClock;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.util.Log;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.ReactContextBaseJavaModule;
+import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
-
-import android.content.pm.PackageManager;
-import android.os.Build;
-import android.os.Environment;
-import android.media.MediaRecorder;
-import android.media.AudioManager;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.util.Log;
-import com.facebook.react.modules.core.DeviceEventManagerModule;
-
-import java.io.FileInputStream;
-
-import java.lang.reflect.Method;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.IllegalAccessException;
-import java.lang.NoSuchMethodException;
 
 class AudioRecorderManager extends ReactContextBaseJavaModule {
 
@@ -49,33 +47,19 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
   private static final String DownloadsDirectoryPath = "DownloadsDirectoryPath";
 
   private Context context;
-  private MediaRecorder recorder;
   private String currentOutputFile;
   private boolean isRecording = false;
-  private boolean isPaused = false;
-  private Timer timer;
-  private StopWatch stopWatch;
-  
   private boolean meteringEnabled = false;
-  private boolean isPauseResumeCapable = false;
-  private Method pauseMethod = null;
-  private Method resumeMethod = null;
+
+
+  private static final int PERMISSION_RECORD_AUDIO = 0;
+
+  private RecordWaveTask recordTask = null;
 
 
   public AudioRecorderManager(ReactApplicationContext reactContext) {
     super(reactContext);
     this.context = reactContext;
-    stopWatch = new StopWatch();
-    
-    isPauseResumeCapable = Build.VERSION.SDK_INT > Build.VERSION_CODES.M;
-    if (isPauseResumeCapable) {
-      try {
-        pauseMethod = MediaRecorder.class.getMethod("pause");
-        resumeMethod = MediaRecorder.class.getMethod("resume");
-      } catch (NoSuchMethodException e) {
-        Log.d("ERROR", "Failed to get a reference to pause and/or resume method");
-      }
-    }
   }
 
   @Override
@@ -110,17 +94,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
       logAndRejectPromise(promise, "INVALID_STATE", "Please call stopRecording before starting recording");
     }
 
-    recorder = new MediaRecorder();
     try {
-      recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-      int outputFormat = getOutputFormatFromString(recordingSettings.getString("OutputFormat"));
-      recorder.setOutputFormat(outputFormat);
-      int audioEncoder = getAudioEncoderFromString(recordingSettings.getString("AudioEncoding"));
-      recorder.setAudioEncoder(audioEncoder);
-      recorder.setAudioSamplingRate(recordingSettings.getInt("SampleRate"));
-      recorder.setAudioChannels(recordingSettings.getInt("Channels"));
-      recorder.setAudioEncodingBitRate(recordingSettings.getInt("AudioEncodingBitRate"));
-      recorder.setOutputFile(recordingPath);
       meteringEnabled = recordingSettings.getBoolean("MeteringEnabled");
     }
     catch(final Exception e) {
@@ -130,13 +104,19 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
 
     currentOutputFile = recordingPath;
     try {
-      recorder.prepare();
+
+      if (recordTask == null) {
+        recordTask = new RecordWaveTask(context, this);
+      } else {
+        recordTask.setContext(context);
+      }
       promise.resolve(currentOutputFile);
     } catch (final Exception e) {
       logAndRejectPromise(promise, "COULDNT_PREPARE_RECORDING_AT_PATH "+recordingPath, e.getMessage());
     }
 
   }
+
 
   private int getAudioEncoderFromString(String audioEncoder) {
    switch (audioEncoder) {
@@ -181,126 +161,77 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void startRecording(Promise promise){
-    if (recorder == null){
-      logAndRejectPromise(promise, "RECORDING_NOT_PREPARED", "Please call prepareRecordingAtPath before starting recording");
-      return;
-    }
-    if (isRecording){
-      logAndRejectPromise(promise, "INVALID_STATE", "Please call stopRecording before starting recording");
-      return;
-    }
-    recorder.start();
 
-    stopWatch.reset();
-    stopWatch.start();
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+      // Request permission
+      ActivityCompat.requestPermissions(getCurrentActivity(),
+              new String[] { Manifest.permission.RECORD_AUDIO },
+              PERMISSION_RECORD_AUDIO);
+      return;
+    }
+    // Permission already available
+    launchTask();
     isRecording = true;
-    isPaused = false;
-    startTimer();
     promise.resolve(currentOutputFile);
+
   }
+
+  private void launchTask() {
+    switch (recordTask.getStatus()) {
+      case RUNNING:
+//        Toast.makeText(context, "Task already running...", Toast.LENGTH_SHORT).show();
+        return;
+      case FINISHED:
+        recordTask = new RecordWaveTask(context, this);
+        break;
+      case PENDING:
+        if (recordTask.isCancelled()) {
+          recordTask = new RecordWaveTask(context, this);
+        }
+    }
+    File wavFile = new File(currentOutputFile);
+//    Toast.makeText(context, wavFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+    recordTask.execute(wavFile);
+  }
+
 
   @ReactMethod
   public void stopRecording(Promise promise){
-    if (!isRecording){
-      logAndRejectPromise(promise, "INVALID_STATE", "Please call startRecording before stopping recording");
-      return;
+
+    if (!recordTask.isCancelled() && recordTask.getStatus() == AsyncTask.Status.RUNNING) {
+      recordTask.cancel(false);
     }
 
-    stopTimer();
     isRecording = false;
-    isPaused = false;
-
-    try {
-      recorder.stop();
-      recorder.release();
-      stopWatch.stop();
-    }
-    catch (final RuntimeException e) {
-      // https://developer.android.com/reference/android/media/MediaRecorder.html#stop()
-      logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "No valid audio data received. You may be using a device that can't record audio.");
-      return;
-    }
-    finally {
-      recorder = null;
-    }
-
     promise.resolve(currentOutputFile);
     sendEvent("recordingFinished", null);
   }
 
-  @ReactMethod
-  public void pauseRecording(Promise promise) {
-    if (!isPauseResumeCapable || pauseMethod==null) {
-      logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "Method not available on this version of Android.");
-      return;
-    }
 
-    if (!isPaused) {
-      try {
-        pauseMethod.invoke(recorder);
-        stopWatch.stop();
-      } catch (InvocationTargetException | RuntimeException | IllegalAccessException e) {
-        e.printStackTrace();
-        logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "Method not available on this version of Android.");
-        return;
-      }
-    }
-
-    isPaused = true;
-    promise.resolve(null);
-  }
 
   @ReactMethod
-  public void resumeRecording(Promise promise) {
-    if (!isPauseResumeCapable || resumeMethod == null) {
-      logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "Method not available on this version of Android.");
-      return;
-    }
-
-    if (isPaused) {
-      try {
-        resumeMethod.invoke(recorder);
-        stopWatch.start();
-      } catch (InvocationTargetException | RuntimeException | IllegalAccessException e) {
-        e.printStackTrace();
-        logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "Method not available on this version of Android.");
-        return;
-      }
-    }
-    
-    isPaused = false;
-    promise.resolve(null);
+  public void pauseRecording(Promise promise){
+    // Added this function to have the same api for android and iOS, stops recording now
+    stopRecording(promise);
   }
 
-  private void startTimer(){
-    timer = new Timer();
-    timer.scheduleAtFixedRate(new TimerTask() {
-      @Override
-      public void run() {
-        if (!isPaused) {
-          WritableMap body = Arguments.createMap();
-          body.putDouble("currentTime", stopWatch.getTimeSeconds());
-          if(meteringEnabled){  
-            int amplitude = recorder.getMaxAmplitude();
-            if (amplitude == 0) {
-              body.putInt("currentMetering", -160);//The first call - absolutely silence  
-            } else {
-              body.putInt("currentMetering", (int) (20 * Math.log(((double) amplitude) / 32767d)));
-            }
+  public void sendMeter(int amplitude, int recorderSecondsElapsed){
+        WritableMap body = Arguments.createMap();
+        body.putInt("currentTime", recorderSecondsElapsed);
+        if(meteringEnabled){
+          if (amplitude == 0) {
+            body.putInt("currentMetering", -160);//The first call - absolutely silence
+          } else {
+            //db = 20 * log10(peaks/ 32767); where 32767 - max value of amplitude in Android, peaks - current value
+            body.putInt("currentMetering", (int) (20 * Math.log(((double) amplitude) / 32767d)));
           }
-          sendEvent("recordingProgress", body);
         }
-      }
-    }, 0, 1000);
+        sendEvent("recordingProgress", body);
+        recorderSecondsElapsed++;
   }
 
-  private void stopTimer(){
-    if (timer != null) {
-      timer.cancel();
-      timer.purge();
-      timer = null;
-    }
-  }
+
 
   private void sendEvent(String eventName, Object params) {
     getReactApplicationContext()
@@ -312,4 +243,305 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     Log.e(TAG, errorMessage);
     promise.reject(errorCode, errorMessage);
   }
+
+  private static class RecordWaveTask extends AsyncTask<File, Void, Object[]> {
+
+    // Configure me!
+    private static final int AUDIO_SOURCE = MediaRecorder.AudioSource.MIC;
+    private static final int SAMPLE_RATE = 16000; // Hz
+    private static final int ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+    private static final int CHANNEL_MASK = AudioFormat.CHANNEL_IN_MONO;
+    //
+
+    private static final int BUFFER_SIZE = 2 * AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_MASK, ENCODING);
+
+    private Context ctx;
+    private AudioRecorderManager audioRecorderManager;
+
+    private RecordWaveTask(Context ctx,  AudioRecorderManager audioRecorderManager) {
+      setContext(ctx);
+      setAudioRecorderManager(audioRecorderManager);
+    }
+
+    private void stopTimer(){
+      recorderSecondsElapsed = 0;
+      if (timer != null) {
+        timer.cancel();
+        timer.purge();
+        timer = null;
+      }
+    }
+
+    private void setContext(Context ctx) {
+      stopTimer();
+      this.ctx = ctx;
+    }
+
+    private void setAudioRecorderManager(AudioRecorderManager audioRecorderManager){
+      this.audioRecorderManager = audioRecorderManager;
+    }
+
+    int recorderSecondsElapsed = 0;
+    Timer timer;
+    int metering = 0;
+
+    /**
+     * Opens up the given file, writes the header, and keeps filling it with raw PCM bytes from
+     * AudioRecord until it reaches 4GB or is stopped by the user. It then goes back and updates
+     * the WAV header to include the proper final chunk sizes.
+     *
+     * @param files Index 0 should be the file to write to
+     * @return Either an Exception (error) or two longs, the filesize, elapsed time in ms (success)
+     */
+    @Override
+    protected Object[] doInBackground(File... files) {
+      AudioRecord audioRecord = null;
+      FileOutputStream wavOut = null;
+      long startTime = 0;
+      long endTime = 0;
+
+      try {
+        // Open our two resources
+        audioRecord = new AudioRecord(AUDIO_SOURCE, SAMPLE_RATE, CHANNEL_MASK, ENCODING, BUFFER_SIZE);
+        wavOut = new FileOutputStream(files[0]);
+
+        // Write out the wav file header
+        writeWavHeader(wavOut, CHANNEL_MASK, SAMPLE_RATE, ENCODING);
+
+        // Avoiding loop allocations
+        byte[] buffer = new byte[BUFFER_SIZE];
+        boolean run = true;
+        int read;
+        long total = 0;
+
+        // Let's go
+        startTime = SystemClock.elapsedRealtime();
+
+        timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask() {
+          @Override
+          public void run() {
+            audioRecorderManager.sendMeter(metering, recorderSecondsElapsed);
+            recorderSecondsElapsed ++;
+          }
+        }, 0, 1000);
+
+        audioRecord.startRecording();
+        while (run && !isCancelled()) {
+          read = audioRecord.read(buffer, 0, buffer.length);
+
+          Log.d("record", recorderSecondsElapsed + "");
+
+          if (read < 0) {
+//            audioRecorderManager.sendMeter(0, recorderSecondsElapsed);
+            metering = 0;
+          }
+
+          int sum = 0;
+          for (int i = 0; i < read; i++) {
+            sum += Math.abs(buffer[i]);
+          }
+
+          if (read > 0) {
+//            audioRecorderManager.sendMeter(sum/read, recorderSecondsElapsed);
+            metering = sum/read;
+          }
+
+          // WAVs cannot be > 4 GB due to the use of 32 bit unsigned integers.
+          if (total + read > 4294967295L) {
+            // Write as many bytes as we can before hitting the max size
+            for (int i = 0; i < read && total <= 4294967295L; i++, total++) {
+              wavOut.write(buffer[i]);
+            }
+            run = false;
+          } else {
+            // Write out the entire read buffer
+            wavOut.write(buffer, 0, read);
+            total += read;
+          }
+        }
+      } catch (IOException ex) {
+        return new Object[]{ex};
+      } finally {
+        if (audioRecord != null) {
+          try {
+            if (audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+              audioRecord.stop();
+              endTime = SystemClock.elapsedRealtime();
+            }
+          } catch (IllegalStateException ex) {
+            //
+          }
+          if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
+            audioRecord.release();
+          }
+
+          stopTimer();
+
+        }
+        if (wavOut != null) {
+          try {
+            wavOut.close();
+          } catch (IOException ex) {
+            //
+          }
+        }
+      }
+
+      try {
+        // This is not put in the try/catch/finally above since it needs to run
+        // after we close the FileOutputStream
+        updateWavHeader(files[0]);
+      } catch (IOException ex) {
+        return new Object[] { ex };
+      }
+
+      return new Object[] { files[0].length(), endTime - startTime };
+    }
+
+    /**
+     * Writes the proper 44-byte RIFF/WAVE header to/for the given stream
+     * Two size fields are left empty/null since we do not yet know the final stream size
+     *
+     * @param out         The stream to write the header to
+     * @param channelMask An AudioFormat.CHANNEL_* mask
+     * @param sampleRate  The sample rate in hertz
+     * @param encoding    An AudioFormat.ENCODING_PCM_* value
+     * @throws IOException
+     */
+    private static void writeWavHeader(OutputStream out, int channelMask, int sampleRate, int encoding) throws IOException {
+      short channels;
+      switch (channelMask) {
+        case AudioFormat.CHANNEL_IN_MONO:
+          channels = 1;
+          break;
+        case AudioFormat.CHANNEL_IN_STEREO:
+          channels = 2;
+          break;
+        default:
+          throw new IllegalArgumentException("Unacceptable channel mask");
+      }
+
+      short bitDepth;
+      switch (encoding) {
+        case AudioFormat.ENCODING_PCM_8BIT:
+          bitDepth = 8;
+          break;
+        case AudioFormat.ENCODING_PCM_16BIT:
+          bitDepth = 16;
+          break;
+        case AudioFormat.ENCODING_PCM_FLOAT:
+          bitDepth = 32;
+          break;
+        default:
+          throw new IllegalArgumentException("Unacceptable encoding");
+      }
+
+      writeWavHeader(out, channels, sampleRate, bitDepth);
+    }
+
+    /**
+     * Writes the proper 44-byte RIFF/WAVE header to/for the given stream
+     * Two size fields are left empty/null since we do not yet know the final stream size
+     *
+     * @param out        The stream to write the header to
+     * @param channels   The number of channels
+     * @param sampleRate The sample rate in hertz
+     * @param bitDepth   The bit depth
+     * @throws IOException
+     */
+    private static void writeWavHeader(OutputStream out, short channels, int sampleRate, short bitDepth) throws IOException {
+      // Convert the multi-byte integers to raw bytes in little endian format as required by the spec
+      byte[] littleBytes = ByteBuffer
+              .allocate(14)
+              .order(ByteOrder.LITTLE_ENDIAN)
+              .putShort(channels)
+              .putInt(sampleRate)
+              .putInt(sampleRate * channels * (bitDepth / 8))
+              .putShort((short) (channels * (bitDepth / 8)))
+              .putShort(bitDepth)
+              .array();
+
+      // Not necessarily the best, but it's very easy to visualize this way
+      out.write(new byte[]{
+              // RIFF header
+              'R', 'I', 'F', 'F', // ChunkID
+              0, 0, 0, 0, // ChunkSize (must be updated later)
+              'W', 'A', 'V', 'E', // Format
+              // fmt subchunk
+              'f', 'm', 't', ' ', // Subchunk1ID
+              16, 0, 0, 0, // Subchunk1Size
+              1, 0, // AudioFormat
+              littleBytes[0], littleBytes[1], // NumChannels
+              littleBytes[2], littleBytes[3], littleBytes[4], littleBytes[5], // SampleRate
+              littleBytes[6], littleBytes[7], littleBytes[8], littleBytes[9], // ByteRate
+              littleBytes[10], littleBytes[11], // BlockAlign
+              littleBytes[12], littleBytes[13], // BitsPerSample
+              // data subchunk
+              'd', 'a', 't', 'a', // Subchunk2ID
+              0, 0, 0, 0, // Subchunk2Size (must be updated later)
+      });
+    }
+
+    /**
+     * Updates the given wav file's header to include the final chunk sizes
+     *
+     * @param wav The wav file to update
+     * @throws IOException
+     */
+    private static void updateWavHeader(File wav) throws IOException {
+      byte[] sizes = ByteBuffer
+              .allocate(8)
+              .order(ByteOrder.LITTLE_ENDIAN)
+              // There are probably a bunch of different/better ways to calculate
+              // these two given your circumstances. Cast should be safe since if the WAV is
+              // > 4 GB we've already made a terrible mistake.
+              .putInt((int) (wav.length() - 8)) // ChunkSize
+              .putInt((int) (wav.length() - 44)) // Subchunk2Size
+              .array();
+
+      RandomAccessFile accessWave = null;
+      //noinspection CaughtExceptionImmediatelyRethrown
+      try {
+        accessWave = new RandomAccessFile(wav, "rw");
+        // ChunkSize
+        accessWave.seek(4);
+        accessWave.write(sizes, 0, 4);
+
+        // Subchunk2Size
+        accessWave.seek(40);
+        accessWave.write(sizes, 4, 4);
+      } catch (IOException ex) {
+        // Rethrow but we still close accessWave in our finally
+        throw ex;
+      } finally {
+        if (accessWave != null) {
+          try {
+            accessWave.close();
+          } catch (IOException ex) {
+            //
+          }
+        }
+      }
+    }
+
+    @Override
+    protected void onCancelled(Object[] results) {
+      // Handling cancellations and successful runs in the same way
+      onPostExecute(results);
+    }
+
+    @Override
+    protected void onPostExecute(Object[] results) {
+      Throwable throwable = null;
+      if (results[0] instanceof Throwable) {
+        // Error
+        throwable = (Throwable) results[0];
+        Log.e(RecordWaveTask.class.getSimpleName(), throwable.getMessage(), throwable);
+      }
+
+    }
+  }
 }
+
+
