@@ -217,6 +217,8 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
   }
 
   public void sendMeter(int amplitude, int recorderSecondsElapsed){
+    System.out.println("------------- android: it can be run " + amplitude);
+    
         WritableMap body = Arguments.createMap();
         body.putInt("currentTime", recorderSecondsElapsed);
         if(meteringEnabled){
@@ -228,7 +230,6 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
           }
         }
         sendEvent("recordingProgress", body);
-        recorderSecondsElapsed++;
   }
 
 
@@ -321,8 +322,8 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
         timer.scheduleAtFixedRate(new TimerTask() {
           @Override
           public void run() {
-            System.out.println("------------- android: it can be run " + metering);
             audioRecorderManager.sendMeter(metering, recorderSecondsElapsed);
+            recorderSecondsElapsed++;
           }
         }, 0, 1000);
 
