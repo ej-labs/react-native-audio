@@ -226,7 +226,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
             body.putInt("currentMetering", -160);//The first call - absolutely silence
           } else {
             //db = 20 * log10(peaks/ 32767); where 32767 - max value of amplitude in Android, peaks - current value
-            Double dMetter = MAX_REPORTABLE_DB + (20 * Math.log(amplitude / MAX_REPORTABLE_AMP));
+            Double dMetter = 40 * Math.log(amplitude / MAX_REPORTABLE_AMP);
             body.putInt("currentMetering", dMetter.intValue());
           }
         }
