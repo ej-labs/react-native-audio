@@ -45,6 +45,8 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
   private static final String LibraryDirectoryPath = "LibraryDirectoryPath";
   private static final String MusicDirectoryPath = "MusicDirectoryPath";
   private static final String DownloadsDirectoryPath = "DownloadsDirectoryPath";
+  private static final float MAX_REPORTABLE_AMP = 32767f;
+	private static final float MAX_REPORTABLE_DB = 90.3087f;
 
   private Context context;
   private String currentOutputFile;
@@ -216,9 +218,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     stopRecording(promise);
   }
 
-  public void sendMeter(int amplitude, int recorderSecondsElapsed){
-    System.out.println("------------- android: it can be run " + amplitude);
-    
+  public void sendMeter(double amplitude, int recorderSecondsElapsed){
         WritableMap body = Arguments.createMap();
         body.putInt("currentTime", recorderSecondsElapsed);
         if(meteringEnabled){
@@ -226,7 +226,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
             body.putInt("currentMetering", -160);//The first call - absolutely silence
           } else {
             //db = 20 * log10(peaks/ 32767); where 32767 - max value of amplitude in Android, peaks - current value
-            body.putInt("currentMetering", (int) (20 * Math.log(((double) amplitude) / 32767d)));
+            body.putInt("currentMetering", (int) MAX_REPORTABLE_DB + (20 * Math.log(amplitude / MAX_REPORTABLE_AMP)));
           }
         }
         sendEvent("recordingProgress", body);
@@ -284,7 +284,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
 
     int recorderSecondsElapsed = 0;
     Timer timer;
-    int metering = 0;
+    double metering = 0f;
 
     /**
      * Opens up the given file, writes the header, and keeps filling it with raw PCM bytes from
@@ -335,10 +335,10 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
 
           if (read < 0) {
 //            audioRecorderManager.sendMeter(0, recorderSecondsElapsed);
-            metering = 0;
+            metering = 0f;
           }
 
-          int sum = 0;
+          double sum = 0;
           for (int i = 0; i < read; i++) {
             sum += Math.abs(buffer[i]);
           }
