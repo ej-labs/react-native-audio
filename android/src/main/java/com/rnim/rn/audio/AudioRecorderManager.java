@@ -321,6 +321,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
         timer.scheduleAtFixedRate(new TimerTask() {
           @Override
           public void run() {
+            System.out.println("------------- android: it can be run " + metering);
             audioRecorderManager.sendMeter(metering, recorderSecondsElapsed);
           }
         }, 0, 1000);
@@ -332,7 +333,6 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
           Log.d("record", recorderSecondsElapsed + "");
 
           if (read < 0) {
-            System.out.println("------------- android: not run" + metering);
 //            audioRecorderManager.sendMeter(0, recorderSecondsElapsed);
             metering = 0;
           }
@@ -345,7 +345,6 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
           if (read > 0) {
 //            audioRecorderManager.sendMeter(sum/read, recorderSecondsElapsed);
             metering = sum/read;
-            System.out.println("------------- android: it can be run " + metering);
           }
 
           // WAVs cannot be > 4 GB due to the use of 32 bit unsigned integers.
