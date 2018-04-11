@@ -332,7 +332,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
         while (run && !isCancelled()) {
           read = audioRecord.read(buffer, 0, buffer.length);
 
-          Log.d("record", recorderSecondsElapsed + "");
+          // Log.d("record", recorderSecondsElapsed + "");
 
           if (read < 0) {
 //            audioRecorderManager.sendMeter(0, recorderSecondsElapsed);
