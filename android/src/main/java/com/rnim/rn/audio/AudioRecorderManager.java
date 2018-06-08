@@ -188,7 +188,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
         recordTask = new RecordWaveTask(context, this);
         break;
       case PENDING:
-        if (recordTask.isCancelled()) {
+        if (recordTask != null && recordTask.isCancelled()) {
           recordTask = new RecordWaveTask(context, this);
         }
     }
@@ -201,7 +201,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
   @ReactMethod
   public void stopRecording(Promise promise){
 
-    if (!recordTask.isCancelled() && recordTask.getStatus() == AsyncTask.Status.RUNNING) {
+    if (recordTask != null && !recordTask.isCancelled() && recordTask.getStatus() == AsyncTask.Status.RUNNING) {
       recordTask.cancel(false);
     }
 
