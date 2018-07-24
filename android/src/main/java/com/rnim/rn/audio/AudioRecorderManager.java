@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import 	java.lang.ArrayIndexOutOfBoundsException;
 
 class AudioRecorderManager extends ReactContextBaseJavaModule {
 
@@ -283,6 +284,14 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
       this.audioRecorderManager = audioRecorderManager;
     }
 
+    private double handleBuffer(byte[] buffer, int index) {
+      try {
+        return Math.abs(buffer[index]);
+      } catch (ArrayIndexOutOfBoundsException e) {
+        return 0;
+      }
+    }
+
     int recorderSecondsElapsed = 0;
     Timer timer;
     double metering = 0f;
@@ -341,7 +350,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
 
           double sum = 0;
           for (int i = 0; i < read; i++) {
-            sum += Math.abs(buffer[i]);
+            sum += handleBuffer(buffer, i);
           }
 
           if (read > 0) {
@@ -353,7 +362,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
           if (total + read > 4294967295L) {
             // Write as many bytes as we can before hitting the max size
             for (int i = 0; i < read && total <= 4294967295L; i++, total++) {
-              wavOut.write(buffer[i]);
+              wavOut.write(handleBuffer(buffer, i));
             }
             run = false;
           } else {
