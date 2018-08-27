@@ -1,9 +1,9 @@
 {
   "name": "react-native-audio",
   "version": "4.1.3",
-  "description": "React Native extension for recording audio",
+  "description": "fork from Roshua Sierles: React Native Adio with support android and compatable with google recognizer api",
   "main": "index.js",
-  "author": "Joshua Sierles <joshua@diluvia.net> (https://github.com/jsierles)",
+  "author": "Wing Lonelion(https://github.com/nodejsaber)",
   "files": [
     "ios/AudioRecorderManager.m",
     "ios/AudioRecorderManager.h",
@@ -21,7 +21,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git@github.com:jsierles/react-native-audio.git"
+    "url": "git@github.com:nodejsaber/react-native-audio.git"
   },
   "nativePackage": true
 }
