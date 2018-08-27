@@ -335,7 +335,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
       this.audioRecorderManager = audioRecorderManager;
     }
 
-    private double handleBuffer(byte[] buffer, int index) {
+    private int handleBuffer(byte[] buffer, int index) {
       try {
         return Math.abs(buffer[index]);
       } catch (ArrayIndexOutOfBoundsException e) {
