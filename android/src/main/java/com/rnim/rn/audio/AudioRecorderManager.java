@@ -22,6 +22,7 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
+// import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -29,11 +30,18 @@ import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+// import java.io.FileNotFoundException;
+// import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import 	java.lang.ArrayIndexOutOfBoundsException;
+
+// import android.util.Base64;
+// import java.io.FileInputStream;
+
+// import java.lang.reflect.Method;
 
 class AudioRecorderManager extends ReactContextBaseJavaModule {
 
@@ -58,7 +66,8 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
   private static final int PERMISSION_RECORD_AUDIO = 0;
 
   private RecordWaveTask recordTask = null;
-
+  // private boolean includeBase64 = false;
+  
 
   public AudioRecorderManager(ReactApplicationContext reactContext) {
     super(reactContext);
@@ -99,6 +108,16 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
 
     try {
       meteringEnabled = recordingSettings.getBoolean("MeteringEnabled");
+      // recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+      // int outputFormat = getOutputFormatFromString(recordingSettings.getString("OutputFormat"));
+      // recorder.setOutputFormat(outputFormat);
+      // int audioEncoder = getAudioEncoderFromString(recordingSettings.getString("AudioEncoding"));
+      // recorder.setAudioEncoder(audioEncoder);
+      // recorder.setAudioSamplingRate(recordingSettings.getInt("SampleRate"));
+      // recorder.setAudioChannels(recordingSettings.getInt("Channels"));
+      // recorder.setAudioEncodingBitRate(recordingSettings.getInt("AudioEncodingBitRate"));
+      // recorder.setOutputFile(recordingPath);
+      // includeBase64 = recordingSettings.getBoolean("IncludeBase64");
     }
     catch(final Exception e) {
       logAndRejectPromise(promise, "COULDNT_CONFIGURE_MEDIA_RECORDER" , "Make sure you've added RECORD_AUDIO permission to your AndroidManifest.xml file "+e.getMessage());
@@ -213,6 +232,29 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     result.putString("status", "OK");
     result.putString("audioFileURL", "file://" + currentOutputFile);
 
+    // String base64 = "";
+    // if (includeBase64) {
+    //   try {
+    //     InputStream inputStream = new FileInputStream(currentOutputFile);
+    //     byte[] bytes;
+    //     byte[] buffer = new byte[8192];
+    //     int bytesRead;
+    //     ByteArrayOutputStream output = new ByteArrayOutputStream();
+    //     try {
+    //       while ((bytesRead = inputStream.read(buffer)) != -1) {
+    //         output.write(buffer, 0, bytesRead);
+    //       }
+    //     } catch (IOException e) {
+    //       Log.e(TAG, "FAILED TO PARSE FILE");
+    //     }
+    //     bytes = output.toByteArray();
+    //     base64 = Base64.encodeToString(bytes, Base64.DEFAULT);
+    //   } catch(FileNotFoundException e) {
+    //     Log.e(TAG, "FAILED TO FIND FILE");
+    //   }
+    // }
+    // result.putString("base64", base64);
+
     sendEvent("recordingFinished", result);
   }
 
@@ -266,6 +308,10 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     private Context ctx;
     private AudioRecorderManager audioRecorderManager;
 
+    int recorderSecondsElapsed = 0;
+    Timer timer;
+    double metering = 0f;
+
     private RecordWaveTask(Context ctx,  AudioRecorderManager audioRecorderManager) {
       setContext(ctx);
       setAudioRecorderManager(audioRecorderManager);
@@ -297,9 +343,6 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
       }
     }
 
-    int recorderSecondsElapsed = 0;
-    Timer timer;
-    double metering = 0f;
 
     /**
      * Opens up the given file, writes the header, and keeps filling it with raw PCM bytes from
