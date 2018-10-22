@@ -140,46 +140,46 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
   }
 
 
-  private int getAudioEncoderFromString(String audioEncoder) {
-   switch (audioEncoder) {
-     case "aac":
-       return MediaRecorder.AudioEncoder.AAC;
-     case "aac_eld":
-       return MediaRecorder.AudioEncoder.AAC_ELD;
-     case "amr_nb":
-       return MediaRecorder.AudioEncoder.AMR_NB;
-     case "amr_wb":
-       return MediaRecorder.AudioEncoder.AMR_WB;
-     case "he_aac":
-       return MediaRecorder.AudioEncoder.HE_AAC;
-     case "vorbis":
-      return MediaRecorder.AudioEncoder.VORBIS;
-     default:
-       Log.d("INVALID_AUDIO_ENCODER", "USING MediaRecorder.AudioEncoder.DEFAULT instead of "+audioEncoder+": "+MediaRecorder.AudioEncoder.DEFAULT);
-       return MediaRecorder.AudioEncoder.DEFAULT;
-   }
-  }
+  // private int getAudioEncoderFromString(String audioEncoder) {
+  //  switch (audioEncoder) {
+  //    case "aac":
+  //      return MediaRecorder.AudioEncoder.AAC;
+  //    case "aac_eld":
+  //      return MediaRecorder.AudioEncoder.AAC_ELD;
+  //    case "amr_nb":
+  //      return MediaRecorder.AudioEncoder.AMR_NB;
+  //    case "amr_wb":
+  //      return MediaRecorder.AudioEncoder.AMR_WB;
+  //    case "he_aac":
+  //      return MediaRecorder.AudioEncoder.HE_AAC;
+  //    case "vorbis":
+  //     return MediaRecorder.AudioEncoder.VORBIS;
+  //    default:
+  //      Log.d("INVALID_AUDIO_ENCODER", "USING MediaRecorder.AudioEncoder.DEFAULT instead of "+audioEncoder+": "+MediaRecorder.AudioEncoder.DEFAULT);
+  //      return MediaRecorder.AudioEncoder.DEFAULT;
+  //  }
+  // }
 
-  private int getOutputFormatFromString(String outputFormat) {
-    switch (outputFormat) {
-      case "mpeg_4":
-        return MediaRecorder.OutputFormat.MPEG_4;
-      case "aac_adts":
-        return MediaRecorder.OutputFormat.AAC_ADTS;
-      case "amr_nb":
-        return MediaRecorder.OutputFormat.AMR_NB;
-      case "amr_wb":
-        return MediaRecorder.OutputFormat.AMR_WB;
-      case "three_gpp":
-        return MediaRecorder.OutputFormat.THREE_GPP;
-      case "webm":
-        return MediaRecorder.OutputFormat.WEBM;
-      default:
-        Log.d("INVALID_OUPUT_FORMAT", "USING MediaRecorder.OutputFormat.DEFAULT : "+MediaRecorder.OutputFormat.DEFAULT);
-        return MediaRecorder.OutputFormat.DEFAULT;
+  // private int getOutputFormatFromString(String outputFormat) {
+  //   switch (outputFormat) {
+  //     case "mpeg_4":
+  //       return MediaRecorder.OutputFormat.MPEG_4;
+  //     case "aac_adts":
+  //       return MediaRecorder.OutputFormat.AAC_ADTS;
+  //     case "amr_nb":
+  //       return MediaRecorder.OutputFormat.AMR_NB;
+  //     case "amr_wb":
+  //       return MediaRecorder.OutputFormat.AMR_WB;
+  //     case "three_gpp":
+  //       return MediaRecorder.OutputFormat.THREE_GPP;
+  //     case "webm":
+  //       return MediaRecorder.OutputFormat.WEBM;
+  //     default:
+  //       Log.d("INVALID_OUPUT_FORMAT", "USING MediaRecorder.OutputFormat.DEFAULT : "+MediaRecorder.OutputFormat.DEFAULT);
+  //       return MediaRecorder.OutputFormat.DEFAULT;
 
-    }
-  }
+  //   }
+  // }
 
   @ReactMethod
   public void startRecording(Promise promise){
@@ -196,7 +196,6 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     launchTask();
     isRecording = true;
     promise.resolve(currentOutputFile);
-
   }
 
   private void launchTask() {
@@ -221,7 +220,11 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
   @ReactMethod
   public void stopRecording(Promise promise){
 
-    if (recordTask != null && !recordTask.isCancelled() && recordTask.getStatus() == AsyncTask.Status.RUNNING) {
+    if (
+      recordTask != null 
+      && !recordTask.isCancelled() 
+      && recordTask.getStatus() == AsyncTask.Status.RUNNING
+      ) {
       recordTask.cancel(false);
     }
 
@@ -392,7 +395,6 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
           // Log.d("record", recorderSecondsElapsed + "");
 
           if (read < 0) {
-//            audioRecorderManager.sendMeter(0, recorderSecondsElapsed);
             metering = 0f;
           }
 
@@ -402,7 +404,6 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
           }
 
           if (read > 0) {
-//            audioRecorderManager.sendMeter(sum/read, recorderSecondsElapsed);
             metering = sum/read;
           }
 
@@ -419,18 +420,21 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
             total += read;
           }
         }
-      } catch (IOException ex) {
+      } catch (IOException|ArrayIndexOutOfBoundsException ex) {
         return new Object[]{ex};
       } finally {
         if (audioRecord != null) {
           try {
+
             if (audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
               audioRecord.stop();
               endTime = SystemClock.elapsedRealtime();
             }
+            
           } catch (IllegalStateException ex) {
             //
           }
+
           if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
             audioRecord.release();
           }
@@ -451,7 +455,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
         // This is not put in the try/catch/finally above since it needs to run
         // after we close the FileOutputStream
         updateWavHeader(files[0]);
-      } catch (IOException ex) {
+      } catch ((IOException|ArrayIndexOutOfBoundsException ex) {
         return new Object[] { ex };
       }
 
