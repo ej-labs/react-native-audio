@@ -455,7 +455,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
         // This is not put in the try/catch/finally above since it needs to run
         // after we close the FileOutputStream
         updateWavHeader(files[0]);
-      } catch ((IOException|ArrayIndexOutOfBoundsException ex) {
+      } catch (IOException|ArrayIndexOutOfBoundsException ex) {
         return new Object[] { ex };
       }
 
@@ -472,8 +472,15 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
      * @param encoding    An AudioFormat.ENCODING_PCM_* value
      * @throws IOException
      */
-    private static void writeWavHeader(OutputStream out, int channelMask, int sampleRate, int encoding) throws IOException {
+    private static void writeWavHeader(
+      OutputStream out, 
+      int channelMask, 
+      int sampleRate, 
+      int encoding
+      ) throws IOException {
+
       short channels;
+
       switch (channelMask) {
         case AudioFormat.CHANNEL_IN_MONO:
           channels = 1;
@@ -513,7 +520,12 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
      * @param bitDepth   The bit depth
      * @throws IOException
      */
-    private static void writeWavHeader(OutputStream out, short channels, int sampleRate, short bitDepth) throws IOException {
+    private static void writeWavHeader(
+      OutputStream out,
+      short channels,
+      int sampleRate, 
+      short bitDepth
+      ) throws IOException {
       // Convert the multi-byte integers to raw bytes in little endian format as required by the spec
       byte[] littleBytes = ByteBuffer
               .allocate(14)
