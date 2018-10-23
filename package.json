@@ -1,6 +1,6 @@
 {
   "name": "react-native-audio",
-  "version": "4.1.6",
+  "version": "4.1.7",
   "description": "fork from Roshua Sierles: React Native Adio with support android and compatable with google recognizer api",
   "main": "index.js",
   "author": "Wing Lonelion(https://github.com/nodejsaber)",
