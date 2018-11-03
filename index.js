@@ -12,10 +12,20 @@ const AudioRecorderManager = NativeModules.AudioRecorderManager;
 
 export class AudioRecorder {
 
+  startSubscription = null;
   progressSubscription = null;
   finishedSubscription = null;
 
   static prepareRecordingAtPath(path, options) {
+    if (this.startSubscription) this.startSubscription.remove();
+    this.startSubscription = NativeAppEventEmitter.addListener('recordingStarted',
+    (data) => {
+      if (this.onStart) {
+        this.onStart(data);
+      }
+    }
+  );
+
     if (this.progressSubscription) this.progressSubscription.remove();
     this.progressSubscription = NativeAppEventEmitter.addListener('recordingProgress',
       (data) => {
@@ -96,6 +106,7 @@ export class AudioRecorder {
   }
 
   static removeListeners() {
+    if (this.startSubscription) this.startSubscription.remove();
     if (this.progressSubscription) this.progressSubscription.remove();
     if (this.finishedSubscription) this.finishedSubscription.remove();
   }

@@ -13,6 +13,7 @@
 #import <React/RCTEventDispatcher.h>
 #import <AVFoundation/AVFoundation.h>
 
+NSString *const AudioRecorderEventStarted = @"recordingStarted";
 NSString *const AudioRecorderEventProgress = @"recordingProgress";
 NSString *const AudioRecorderEventFinished = @"recordingFinished";
 
@@ -81,7 +82,7 @@ RCT_EXPORT_MODULE();
 - (void)audioRecorderDidFinishRecording:(AVAudioRecorder *)recorder successfully:(BOOL)flag {
   NSString *base64 = @"";
   if (_includeBase64) {
-    NSData *data = [NSData dataWithContentsOfFile:_audioFileURL];
+    NSData *data = [NSData dataWithContentsOfURL:_audioFileURL];
     base64 = [data base64EncodedStringWithOptions:0];
   }
     uint64_t audioFileSize = 0;
@@ -101,6 +102,13 @@ RCT_EXPORT_MODULE();
     [[AVAudioSession sharedInstance] setActive:NO
                                    withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
                                          error:&error];
+    if (error) {
+        // TODO: dispatch error over the bridge
+        NSLog(@"error: %@", [error localizedDescription]);
+    }
+}
+
+- (void)audioRecorderEncodeErrorDidOccur:(AVAudioRecorder *)recorder error:(NSError *)error {
     if (error) {
         // TODO: dispatch error over the bridge
         NSLog(@"error: %@", [error localizedDescription]);
@@ -169,9 +177,14 @@ RCT_EXPORT_METHOD(prepareRecordingAtPath:(NSString *)path sampleRate:(float)samp
       _audioEncoding =[NSNumber numberWithInt:kAudioFormatAppleLossless];
     } else if ([encoding  isEqual: @"amr"]) {
       _audioEncoding =[NSNumber numberWithInt:kAudioFormatAMR];
+    } else if ([encoding  isEqual: @"flac"]) {
+        if (@available(iOS 11, *)) _audioEncoding =[NSNumber numberWithInt:kAudioFormatFLAC];
+    } else if ([encoding  isEqual: @"opus"]) {
+        if (@available(iOS 11, *)) _audioEncoding =[NSNumber numberWithInt:kAudioFormatOpus];
     }
   }
 
+    
   // Set sample rate from options
   _audioSampleRate = [NSNumber numberWithFloat:sampleRate];
 
@@ -228,6 +241,9 @@ RCT_EXPORT_METHOD(startRecording)
   [self startProgressTimer];
   [_recordSession setActive:YES error:nil];
   [_audioRecorder record];
+  [self.bridge.eventDispatcher sendAppEventWithName:AudioRecorderEventStarted body:@{
+      @"ready": true,
+    }];
 }
 
 RCT_EXPORT_METHOD(stopRecording)
