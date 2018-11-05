@@ -14,9 +14,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.lang.ArrayIndexOutOfBoundsException;
 
-import javax.sound.sampled.AudioFormat;
-
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -25,22 +25,18 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
-import org.omg.CORBA.Environment;
-
+import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.AsyncTask;
+import android.os.Environment;
 import android.os.SystemClock;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
-import jdk.nashorn.internal.runtime.regexp.joni.constants.Arguments;
-import sun.rmi.runtime.Log;
-
-// import android.util.Base64;
-// import java.io.FileInputStream;
-
-// import java.lang.reflect.Method;
+import android.util.Log;
 
 class AudioRecorderManager extends ReactContextBaseJavaModule {
 
@@ -107,9 +103,9 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
 
     try {
       meteringEnabled = recordingSettings.getBoolean("MeteringEnabled");
-    } catch (final Exception e) {
+    } catch (final Exception error) {
       logAndRejectPromise(promise, "COULDNT_CONFIGURE_MEDIA_RECORDER",
-          "Make sure you've added RECORD_AUDIO permission to your AndroidManifest.xml file " + e.getMessage());
+          "Make sure you've added RECORD_AUDIO permission to your AndroidManifest.xml file " + error.getMessage());
       return;
     }
 
@@ -122,8 +118,8 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
         recordTask.setContext(context);
       }
       promise.resolve(currentOutputFile);
-    } catch (final Exception e) {
-      logAndRejectPromise(promise, "COULDNT_PREPARE_RECORDING_AT_PATH " + recordingPath, e.getMessage());
+    } catch (final Exception error) {
+      logAndRejectPromise(promise, "COULDNT_PREPARE_RECORDING_AT_PATH " + recordingPath, error.getMessage());
     }
 
   }
@@ -132,7 +128,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
   public void startRecording(Promise promise) {
 
     if (recordTask == null) {
-      logAndRejectPromise(promise, "RECORDER_NOT_READY", "Please config your recorer before start " + e.getMessage());
+      logAndRejectPromise(promise, "RECORDER_NOT_READY", "Please config your recorer before start");
     }
 
     if (ContextCompat.checkSelfPermission(context,
@@ -167,7 +163,6 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
       }
     }
     File wavFile = new File(currentOutputFile);
-    // Toast.makeText(context, wavFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
     recordTask.execute(wavFile);
   }
 
