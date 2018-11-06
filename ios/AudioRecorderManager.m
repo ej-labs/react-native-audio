@@ -242,7 +242,7 @@ RCT_EXPORT_METHOD(startRecording)
   [_recordSession setActive:YES error:nil];
   [_audioRecorder record];
   [self.bridge.eventDispatcher sendAppEventWithName:AudioRecorderEventStarted body:@{
-      @"ready": true,
+      @"ready": [NSNumber numberWithBool:true],
     }];
 }
 
