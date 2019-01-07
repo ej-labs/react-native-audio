@@ -67,6 +67,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     this.context = reactContext;
   }
 
+
   @Override
   public Map<String, Object> getConstants() {
     Map<String, Object> constants = new HashMap<>();
@@ -83,10 +84,12 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     return constants;
   }
 
+
   @Override
   public String getName() {
     return "AudioRecorderManager";
   }
+
 
   @ReactMethod
   public void checkAuthorizationStatus(Promise promise) {
@@ -94,6 +97,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     boolean permissionGranted = permissionCheck == PackageManager.PERMISSION_GRANTED;
     promise.resolve(permissionGranted);
   }
+
 
   @ReactMethod
   public void prepareRecordingAtPath(String recordingPath, ReadableMap recordingSettings, Promise promise) {
@@ -121,8 +125,8 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     } catch (final Exception error) {
       logAndRejectPromise(promise, "COULDNT_PREPARE_RECORDING_AT_PATH " + recordingPath, error.getMessage());
     }
-
   }
+
 
   @ReactMethod
   public void startRecording(Promise promise) {
@@ -148,6 +152,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     sendEvent("recordingStarted", body);
   }
 
+
   private void launchTask() {
     switch (recordTask.getStatus()) {
     case RUNNING:
@@ -166,6 +171,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     recordTask.execute(wavFile);
   }
 
+
   @ReactMethod
   public void stopRecording(Promise promise) {
 
@@ -182,12 +188,14 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     sendEvent("recordingFinished", result);
   }
 
+
   @ReactMethod
   public void pauseRecording(Promise promise) {
     // Added this function to have the same api for android and iOS, stops recording
     // now
     stopRecording(promise);
   }
+
 
   public void sendMeter(double amplitude, int recorderSecondsElapsed) {
     WritableMap body = Arguments.createMap();
@@ -205,15 +213,18 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     sendEvent("recordingProgress", body);
   }
 
+
   private void sendEvent(String eventName, Object params) {
     getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName,
         params);
   }
 
+
   private void logAndRejectPromise(Promise promise, String errorCode, String errorMessage) {
     Log.e(TAG, errorMessage);
     promise.reject(errorCode, errorMessage);
   }
+  
 
   private static class RecordWaveTask extends AsyncTask<File, Void, Object[]> {
 
@@ -507,21 +518,21 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
       }
     }
 
+
     @Override
     protected void onCancelled(Object[] results) {
-      // Handling cancellations and successful runs in the same way
-      onPostExecute(results);
+    // Handling cancellations and successful runs in the same way
+    onPostExecute(results);
     }
 
     @Override
     protected void onPostExecute(Object[] results) {
       Throwable throwable = null;
-      if (results[0] instanceof Throwable) {
+      if (results != null && results[0] instanceof Throwable) {
         // Error
         throwable = (Throwable) results[0];
         Log.e(RecordWaveTask.class.getSimpleName(), throwable.getMessage(), throwable);
       }
-
     }
   }
 }
